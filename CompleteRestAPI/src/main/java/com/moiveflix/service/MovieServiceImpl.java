@@ -9,10 +9,15 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.moiveflix.dto.MovieDto;
+import com.moiveflix.dto.MoviePageResponse;
 import com.moiveflix.entities.Movie;
 import com.moiveflix.exceptions.FileExistsException;
 import com.moiveflix.exceptions.MovieNotFoundException;
@@ -20,16 +25,16 @@ import com.moiveflix.repository.MovieRepositiory;
 
 @Service
 public class MovieServiceImpl implements MovieService{
-	
+
 	@Autowired
 	private MovieRepositiory movieRepositiory;
-	
+
 	@Autowired
 	private FileService fileService;
-	
+
 	@Value("${project.poster}")
 	private String path;
-	
+
 	@Value("${base.url}")
 	private String baseUrl;
 
@@ -39,12 +44,12 @@ public class MovieServiceImpl implements MovieService{
 		if(Files.exists(Paths.get(path + File.separator + file.getOriginalFilename()))){
 			throw new FileExistsException("File already exists! Please upload another file");
 		}
-		
+
 		String uploadFileName = fileService.uploadFile(path, file);
-		
+
 		// 2. Set the value of filed poster as filename.
 		movieDto.setPoster(uploadFileName);
-		
+
 		// 3. map dto to movie obj
 		Movie movie = new Movie(null, 
 				movieDto.getTitle(), 
@@ -53,13 +58,13 @@ public class MovieServiceImpl implements MovieService{
 				movieDto.getMovieCast(), 
 				movieDto.getReleaseYear(), 
 				movieDto.getPoster());
-		
+
 		// 4. save the movie obj.
 		Movie savedMovie = movieRepositiory.save(movie);
-		
+
 		// 5. genereate the poster URL.
 		String posterUrl = baseUrl + "/file/" + uploadFileName;
-		
+
 		// 6. map movie obj to dto obj and return.
 		MovieDto response =  new MovieDto(savedMovie.getMovieId(),
 				savedMovie.getTitle(),
@@ -70,7 +75,7 @@ public class MovieServiceImpl implements MovieService{
 				savedMovie.getPoster(), 
 				posterUrl
 				);
-		
+
 		return response;
 	}
 
@@ -79,10 +84,10 @@ public class MovieServiceImpl implements MovieService{
 		// 1. check the data in the db and if exists fetch the data for given Id
 		Movie movieFromDb = movieRepositiory.findById(movieId)
 				.orElseThrow(() -> new MovieNotFoundException("Movie not found with id : " + movieId));
-		
+
 		// 2. Generate the posterurl
 		String posterUrl = baseUrl + "/file/" + movieFromDb.getPoster();
-		
+
 		// 3. map to MovieDto obj and return
 		MovieDto movieDto = new MovieDto(movieFromDb.getMovieId(), 
 				movieFromDb.getTitle(), 
@@ -99,12 +104,12 @@ public class MovieServiceImpl implements MovieService{
 	public List<MovieDto> getAllMovies() {
 		// 1. fetch all data from db.
 		List<Movie> allMoviesList = movieRepositiory.findAll();
-		
+
 		// 2. iterate through the list and generate posterurl for each movie and map it to MovieDto Obj.
 		List<MovieDto> responseMovies = new ArrayList<>();
 		for(Movie movie : allMoviesList) {
 			String posterUrl = baseUrl + "/file/" + movie.getPoster();
-			
+
 			MovieDto movieDto = new MovieDto(movie.getMovieId(), 
 					movie.getTitle(), 
 					movie.getDirector(), 
@@ -121,24 +126,24 @@ public class MovieServiceImpl implements MovieService{
 	@Override
 	public MovieDto updateMovie(Integer movieId, MovieDto movieDto, MultipartFile file) 
 			throws IOException {
-		
+
 
 		// 1. Check if the given movie id exists or not.
 		Movie movie = movieRepositiory.findById(movieId)
 				.orElseThrow(() -> new MovieNotFoundException("Movie not found with id : " + movieId));
-		
+
 		// 2. if file is null, do nothing but file is not null then delete existing file and upload new file.
 		String uploadFileName = movie.getPoster();
 		if(file != null) {
 			Files.deleteIfExists(Paths.get(path + File.separator + uploadFileName));
 			uploadFileName = fileService.uploadFile(path, file);
 		}
-		
+
 		// 3. set movieDto's poster value according to step 2.
 		if(file != null) {
 			movieDto.setPoster(uploadFileName);
 		}
-		
+
 		// 4. Map it to movie object and save the movie obj.
 		Movie movieObj = new Movie(movie.getMovieId(), 
 				movieDto.getTitle(), 
@@ -147,12 +152,12 @@ public class MovieServiceImpl implements MovieService{
 				movieDto.getMovieCast(), 
 				movieDto.getReleaseYear(), 
 				movieDto.getPoster());
-		
+
 		Movie savedMovie = movieRepositiory.save(movieObj);
-		
+
 		// 5. generate the posterUrl
 		String posterUrl = baseUrl + "/file/" + savedMovie.getPoster();
-		
+
 		// 6. map to movieDto and return it.
 		MovieDto response =  new MovieDto(savedMovie.getMovieId(),
 				savedMovie.getTitle(),
@@ -163,7 +168,7 @@ public class MovieServiceImpl implements MovieService{
 				savedMovie.getPoster(), 
 				posterUrl
 				);
-		
+
 		return response;
 	}
 
@@ -172,13 +177,76 @@ public class MovieServiceImpl implements MovieService{
 		// 1. Check if movie exists in db
 		Movie movie = movieRepositiory.findById(movieId)
 				.orElseThrow(() -> new MovieNotFoundException("Movie not found with id : " + movieId));
-		
+
 		// 2. delete the file associated with this object.
 		Files.deleteIfExists(Paths.get(path + File.separator + movie.getPoster()));
-		
+
 		// 3. delete the object.
 		movieRepositiory.delete(movie);
 		return "Movie deleted with Id : " + movieId;
+	}
+
+	@Override
+	public MoviePageResponse getAllMoviesWithPagination(Integer pageNumber, Integer pageSize) {
+
+		Pageable pageable = PageRequest.of(pageNumber, pageSize);
+
+		Page<Movie> allMoviesPage = movieRepositiory.findAll(pageable);
+		List<Movie> movies = allMoviesPage.getContent();
+
+		List<MovieDto> responseMovies = new ArrayList<>();
+		for(Movie movie : movies) {
+			String posterUrl = baseUrl + "/file/" + movie.getPoster();
+
+			MovieDto movieDto = new MovieDto(movie.getMovieId(), 
+					movie.getTitle(), 
+					movie.getDirector(), 
+					movie.getStudio(), 
+					movie.getMovieCast(), 
+					movie.getReleaseYear(), 
+					movie.getPoster(), 
+					posterUrl);
+			responseMovies.add(movieDto);
+		}
+
+		return new MoviePageResponse(responseMovies, pageNumber, pageSize, 
+				allMoviesPage.getTotalElements(), 
+				allMoviesPage.getTotalPages(),
+				allMoviesPage.isLast());
+	}
+
+	@Override
+	public MoviePageResponse getAllMoviesWithPaginationAndSorting(Integer pageNumber, Integer pageSize, String sortBy,
+			String direction) {
+
+		Sort sort = direction.equalsIgnoreCase("asc") 
+				? Sort.by(sortBy).ascending()
+						: Sort.by(sortBy).descending();
+
+		Pageable pageable = PageRequest.of(pageNumber, pageSize, sort);
+
+		Page<Movie> allMoviesPage = movieRepositiory.findAll(pageable);
+		List<Movie> movies = allMoviesPage.getContent();
+
+		List<MovieDto> responseMovies = new ArrayList<>();
+		for(Movie movie : movies) {
+			String posterUrl = baseUrl + "/file/" + movie.getPoster();
+
+			MovieDto movieDto = new MovieDto(movie.getMovieId(), 
+					movie.getTitle(), 
+					movie.getDirector(), 
+					movie.getStudio(), 
+					movie.getMovieCast(), 
+					movie.getReleaseYear(), 
+					movie.getPoster(), 
+					posterUrl);
+			responseMovies.add(movieDto);
+		}
+
+		return new MoviePageResponse(responseMovies, pageNumber, pageSize, 
+				allMoviesPage.getTotalElements(), 
+				allMoviesPage.getTotalPages(),
+				allMoviesPage.isLast());
 	}
 
 }
