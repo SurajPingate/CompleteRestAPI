@@ -20,6 +20,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.moiveflix.dto.MovieDto;
+import com.moiveflix.exceptions.EmptyFileException;
 import com.moiveflix.service.MovieService;
 
 @RestController
@@ -30,7 +31,12 @@ public class MovieController {
 	private MovieService movieService;
 	
 	@PostMapping("/add-movie")
-	public ResponseEntity<MovieDto> addMovieHandler(@RequestPart MultipartFile file, @RequestPart String movieDto) throws IOException{
+	public ResponseEntity<MovieDto> addMovieHandler(@RequestPart MultipartFile file, 
+			@RequestPart String movieDto) throws IOException{
+		
+		if(file.isEmpty()) {
+			throw new EmptyFileException("File is empty, Please upload file");
+		}
 		
 		MovieDto convertToMovieDto = convertToMovieDto(movieDto);
 		return new ResponseEntity<>(movieService.addMovie(convertToMovieDto, file), HttpStatus.CREATED);

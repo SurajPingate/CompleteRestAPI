@@ -14,6 +14,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.moiveflix.dto.MovieDto;
 import com.moiveflix.entities.Movie;
+import com.moiveflix.exceptions.FileExistsException;
+import com.moiveflix.exceptions.MovieNotFoundException;
 import com.moiveflix.repository.MovieRepositiory;
 
 @Service
@@ -35,7 +37,7 @@ public class MovieServiceImpl implements MovieService{
 	public MovieDto addMovie(MovieDto movieDto, MultipartFile file) throws IOException {
 		// 1. Upload the file.
 		if(Files.exists(Paths.get(path + File.separator + file.getOriginalFilename()))){
-			throw new RuntimeException("File already exists! Please upload another file");
+			throw new FileExistsException("File already exists! Please upload another file");
 		}
 		
 		String uploadFileName = fileService.uploadFile(path, file);
@@ -75,7 +77,8 @@ public class MovieServiceImpl implements MovieService{
 	@Override
 	public MovieDto getMovieDetails(Integer movieId) {
 		// 1. check the data in the db and if exists fetch the data for given Id
-		Movie movieFromDb = movieRepositiory.findById(movieId).orElseThrow(() -> new RuntimeException("Movie not found!"));
+		Movie movieFromDb = movieRepositiory.findById(movieId)
+				.orElseThrow(() -> new MovieNotFoundException("Movie not found with id : " + movieId));
 		
 		// 2. Generate the posterurl
 		String posterUrl = baseUrl + "/file/" + movieFromDb.getPoster();
@@ -116,11 +119,13 @@ public class MovieServiceImpl implements MovieService{
 	}
 
 	@Override
-	public MovieDto updateMovie(Integer movieId, MovieDto movieDto, MultipartFile file) throws IOException {
+	public MovieDto updateMovie(Integer movieId, MovieDto movieDto, MultipartFile file) 
+			throws IOException {
 		
 
 		// 1. Check if the given movie id exists or not.
-		Movie movie = movieRepositiory.findById(movieId).orElseThrow(() -> new RuntimeException("Movie not found!"));
+		Movie movie = movieRepositiory.findById(movieId)
+				.orElseThrow(() -> new MovieNotFoundException("Movie not found with id : " + movieId));
 		
 		// 2. if file is null, do nothing but file is not null then delete existing file and upload new file.
 		String uploadFileName = movie.getPoster();
@@ -165,7 +170,8 @@ public class MovieServiceImpl implements MovieService{
 	@Override
 	public String deleteMovie(Integer movieId) throws IOException {
 		// 1. Check if movie exists in db
-		Movie movie = movieRepositiory.findById(movieId).orElseThrow(() -> new RuntimeException("Movie not found!"));
+		Movie movie = movieRepositiory.findById(movieId)
+				.orElseThrow(() -> new MovieNotFoundException("Movie not found with id : " + movieId));
 		
 		// 2. delete the file associated with this object.
 		Files.deleteIfExists(Paths.get(path + File.separator + movie.getPoster()));
