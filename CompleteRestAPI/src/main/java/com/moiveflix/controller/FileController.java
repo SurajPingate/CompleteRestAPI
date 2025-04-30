@@ -36,6 +36,7 @@ public class FileController {
 	public ResponseEntity<String> uploadFileHandler(@RequestPart MultipartFile file) throws IOException{
 		String uploadFileName = fileService.uploadFile(path, file);
 		return ResponseEntity.ok("File Uploaded : " + uploadFileName);
+		//return new ResponseEntity<String>(uploadFileName, HttpStatus.ACCEPTED);
 	}
 	
 	@GetMapping("/{fileName}")
