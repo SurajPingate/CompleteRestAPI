@@ -22,4 +22,14 @@ public class GlobalExceptionHandler {
 	ProblemDetail handlerMovieNotFoundException(MovieNotFoundException ex) {
 		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
 	}
+	
+	@ExceptionHandler(RefreshTokenException.class)
+	ProblemDetail handlerRefreshTokenException(RefreshTokenException ex) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+	}
+	
+	@ExceptionHandler(RefreshTokenNotFoundException.class)
+	ProblemDetail handlerRefreshTokenNotFoundException(RefreshTokenNotFoundException ex) {
+		return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+	}
 }
